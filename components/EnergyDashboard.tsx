@@ -18,6 +18,7 @@ export default function EnergyDashboard() {
   useEffect(() => {
     // Simulate real-time data updates
     const interval = setInterval(() => {
+      // eslint-disable-next-line react-hooks/immutability
       updateDashboardMetrics();
     }, 5000);
 

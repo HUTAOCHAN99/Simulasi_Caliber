@@ -1,17 +1,22 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { WeatherData } from '@/types';
-import { EnergyCalculator } from '@/lib/calculations';
+import { WeatherData, SunlightAnalysis } from '@/types';
+import { EnergyCalculator, WeatherService } from '@/lib/calculations';
 
 export default function WeatherSimulation() {
   const [weather, setWeather] = useState<WeatherData | null>(null);
+  const [sunlightAnalysis, setSunlightAnalysis] = useState<SunlightAnalysis | null>(null);
   const [loading, setLoading] = useState(true);
   const [location, setLocation] = useState('jakarta');
+  const [timeStatus, setTimeStatus] = useState<{ period: string; greeting: string } | null>(null);
 
   useEffect(() => {
     fetchWeatherData();
     const interval = setInterval(fetchWeatherData, 300000); // Update every 5 minutes
+
+    // Set time status
+    setTimeStatus(WeatherService.getCurrentTimeStatus());
 
     return () => clearInterval(interval);
   }, [location]);
@@ -22,11 +27,48 @@ export default function WeatherSimulation() {
       const response = await fetch(`/api/weather?location=${location}`);
       const data = await response.json();
       setWeather(data);
+      
+      // Analisis sinar matahari
+      const analysis = WeatherService.analyzeSunlightPotential(data);
+      setSunlightAnalysis(analysis);
     } catch (error) {
       console.error('Error fetching weather data:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const getSunlightIntensityColor = (intensity: string) => {
+    switch (intensity) {
+      case 'high': return 'text-green-600 bg-green-100';
+      case 'medium': return 'text-yellow-600 bg-yellow-100';
+      case 'low': return 'text-orange-600 bg-orange-100';
+      default: return 'text-gray-600 bg-gray-100';
+    }
+  };
+
+  const getSunlightIcon = (intensity: string, hasSunlight: boolean) => {
+    if (!hasSunlight) return '🌙';
+    
+    switch (intensity) {
+      case 'high': return '☀️';
+      case 'medium': return '⛅';
+      case 'low': return '🌤️';
+      default: return '☁️';
+    }
+  };
+
+  const getWeatherIcon = (condition: string) => {
+    const icons: { [key: string]: string } = {
+      Clear: '☀️',
+      Clouds: '☁️',
+      Rain: '🌧️',
+      Thunderstorm: '⛈️',
+      Drizzle: '🌦️',
+      Snow: '❄️',
+      Mist: '🌫️',
+    };
+    return icons[condition] || '🌈';
   };
 
   const calculateSolarPotential = () => {
@@ -43,19 +85,6 @@ export default function WeatherSimulation() {
       monthly: Math.round(dailyProduction * 30),
       yearly: Math.round(dailyProduction * 365)
     };
-  };
-
-  const getWeatherIcon = (condition: string) => {
-    const icons: { [key: string]: string } = {
-      Clear: '☀️',
-      Clouds: '☁️',
-      Rain: '🌧️',
-      Thunderstorm: '⛈️',
-      Drizzle: '🌦️',
-      Snow: '❄️',
-      Mist: '🌫️',
-    };
-    return icons[condition] || '🌈';
   };
 
   if (loading) {
@@ -92,14 +121,35 @@ export default function WeatherSimulation() {
           onChange={(e) => setLocation(e.target.value)}
           className="text-sm border rounded px-2 py-1 text-gray-500"
         >
-          <option value="jakarta text-gray-500">Jakarta</option>
-          <option value="surabaya text-gray-500">Surabaya</option>
-          <option value="bandung text-gray-500">Bandung</option>
-          <option value="medan text-gray-500">Medan</option>
+          <option value="jakarta">Jakarta</option>
+          <option value="surabaya">Surabaya</option>
+          <option value="bandung">Bandung</option>
+          <option value="medan">Medan</option>
         </select>
       </div>
       
       <div className="space-y-4">
+        {/* Time Greeting */}
+        {timeStatus && (
+          <div className="p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-semibold text-gray-500">Selamat {timeStatus.greeting}!</p>
+                <p className="text-sm text-gray-600">
+                  {timeStatus.period === 'night' 
+                    ? 'Waktu optimal untuk battery storage' 
+                    : 'Monitor produksi solar secara real-time'}
+                </p>
+              </div>
+              <span className="text-2xl">
+                {timeStatus.period === 'morning' ? '🌅' : 
+                 timeStatus.period === 'afternoon' ? '🏙️' : 
+                 timeStatus.period === 'evening' ? '🌇' : '🌃'}
+              </span>
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
           <span className="font-medium text-gray-500">Lokasi:</span>
           <span className="font-semibold text-gray-500">{weather.location}</span>
@@ -108,11 +158,104 @@ export default function WeatherSimulation() {
         <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
           <span className="font-medium text-gray-500">Kondisi:</span>
           <div className="flex items-center gap-2">
-            <span className="text-2xl ">{getWeatherIcon(weather.weatherCondition)}</span>
+            <span className="text-2xl">{getWeatherIcon(weather.weatherCondition)}</span>
             <span className="font-semibold capitalize text-gray-500">{weather.weatherCondition.toLowerCase()}</span>
           </div>
         </div>
 
+        {/* Sunlight Analysis Section */}
+        {sunlightAnalysis && (
+          <div className="p-4 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg border border-yellow-200">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-gray-500">Analisis Sinar Matahari</h3>
+              <span className="text-2xl">
+                {getSunlightIcon(sunlightAnalysis.sunlightIntensity, sunlightAnalysis.hasSunlight)}
+              </span>
+            </div>
+            
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-500">Status:</span>
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getSunlightIntensityColor(sunlightAnalysis.sunlightIntensity)}`}>
+                  {sunlightAnalysis.hasSunlight ? 'Sinar Matahari Tersedia' : 'Tidak Ada Sinar Matahari'}
+                </span>
+              </div>
+              
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-500">Intensitas:</span>
+                <span className="font-semibold capitalize text-gray-500">
+                  {sunlightAnalysis.sunlightIntensity}
+                </span>
+              </div>
+              
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-500">Estimasi Jam Cerah:</span>
+                <span className="font-semibold text-gray-500">
+                  {sunlightAnalysis.estimatedSunHours} jam/hari
+                </span>
+              </div>
+            </div>
+
+            {/* Recommended Actions */}
+            <div className="mt-3">
+              <h4 className="text-sm font-medium text-gray-500 mb-2">Rekomendasi:</h4>
+              <ul className="text-xs space-y-1">
+                {sunlightAnalysis.recommendedActions.map((action, index) => (
+                  <li key={index} className="text-gray-600">• {action}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
+
+        {/* Optimal Production Hours */}
+        {sunlightAnalysis && sunlightAnalysis.hasSunlight && (
+          <div className="p-3 bg-green-50 rounded-lg">
+            <h4 className="font-medium text-green-800 mb-2">Jam Optimal Produksi Solar:</h4>
+            <div className="flex flex-wrap gap-1">
+              {sunlightAnalysis.optimalProductionHours.map(hour => (
+                <div 
+                  key={hour}
+                  className={`px-2 py-1 rounded text-xs ${
+                    new Date().getHours() === hour 
+                      ? 'bg-green-600 text-white' 
+                      : 'bg-green-200 text-green-800'
+                  }`}
+                >
+                  {hour}:00
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Solar Production Prediction */}
+        {weather && sunlightAnalysis && (
+          <div className="p-3 bg-purple-50 rounded-lg">
+            <h4 className="font-medium text-purple-800 mb-2">Prediksi Produksi Solar (500m² panel):</h4>
+            {(() => {
+              const prediction = WeatherService.predictSolarProduction(weather, 500);
+              return (
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Produksi Hari Ini:</span>
+                    <span className="font-semibold text-gray-500">{prediction.predictedProduction} kWh</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Efisiensi:</span>
+                    <span className="font-semibold text-gray-500">{prediction.efficiency}%</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Tingkat Keyakinan:</span>
+                    <span className="font-semibold text-gray-500">{prediction.confidence}%</span>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        )}
+
+        {/* Weather Metrics */}
         <div className="grid grid-cols-2 gap-4">
           <div className="p-3 bg-red-50 rounded-lg text-center">
             <div className="text-2xl font-bold text-red-600">{weather.temperature}°C</div>

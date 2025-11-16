@@ -51,3 +51,52 @@ export interface SavingsResult {
   roi: number;
   paybackPeriod: number;
 }
+
+export interface SunlightAnalysis {
+  hasSunlight: boolean;
+  sunlightIntensity: 'high' | 'medium' | 'low' | 'none';
+  recommendedActions: string[];
+  estimatedSunHours: number;
+  optimalProductionHours: number[];
+}
+
+export interface TimeBasedAnalysis {
+  isDaytime: boolean;
+  currentHour: number;
+  sunrise: number;
+  sunset: number;
+  daylightHours: number;
+}
+
+export interface EnergyComparison {
+  timestamp: Date;
+  fossilFuel: {
+    consumption: number; // kWh
+    cost: number; // IDR
+    co2Emission: number; // kg CO2
+    efficiency: number; // %
+  };
+  solarEnergy: {
+    production: number; // kWh
+    cost: number; // IDR
+    co2Emission: number; // kg CO2
+    efficiency: number; // %
+  };
+  gridMix: {
+    consumption: number; // kWh
+    cost: number; // IDR
+    co2Emission: number; // kg CO2
+    fossilPercentage: number; // %
+    renewablePercentage: number; // %
+  };
+}
+
+export interface EmissionStats {
+  totalCO2: number;
+  savedCO2: number;
+  equivalent: {
+    trees: number; // equivalent trees planted
+    cars: number; // equivalent cars off the road
+    distance: number; // equivalent km not driven
+  };
+}
